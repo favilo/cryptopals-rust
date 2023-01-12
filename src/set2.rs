@@ -205,17 +205,12 @@ mod tests {
         assert_eq!(cracked_data.len(), secret_data.len());
 
         // Check that we decrypted it correctly
-        let secret_data = from_base64(
-            "\
-            Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkg\
-            aGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBq\
-            dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg\
-            YnkK",
-        );
+        let secret_data = "\
+            Rollin' in my 5.0\n\
+            With my rag-top down so my hair can blow\n\
+            The girlies on standby waving just to say hi\n\
+            Did you stop? No, I just drove by\n";
 
-        assert_eq!(
-            String::from_utf8_lossy(&cracked_data),
-            String::from_utf8_lossy(&secret_data)
-        );
+        assert_eq!(&String::from_utf8_lossy(&cracked_data), secret_data);
     }
 }
