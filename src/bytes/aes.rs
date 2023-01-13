@@ -42,7 +42,7 @@ where
         let length = data.len();
         pad_vec::<16>(&mut data);
         let data: Vec<GenericArray<_, _>> = data
-            .chunks(<Algo as BlockSizeUser>::block_size())
+            .chunks(Algo::block_size())
             .map(|array| {
                 GenericArray::<_, <Algo as BlockSizeUser>::BlockSize>::clone_from_slice(array)
             })
