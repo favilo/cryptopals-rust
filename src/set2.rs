@@ -1,3 +1,5 @@
+use std::iter::repeat;
+
 use aes::{
     cipher::{BlockDecrypt, BlockEncrypt, BlockSizeUser, KeyInit, KeySizeUser},
     Aes128,
@@ -6,9 +8,12 @@ use itertools::Itertools;
 use once_cell::sync::Lazy;
 use rand::{rngs::ThreadRng, seq::IteratorRandom, Fill, Rng};
 
-use crate::bytes::{
-    aes::{AesCbc, AesEcb},
-    from_base64,
+use crate::{
+    bytes::{
+        aes::{AesCbc, AesEcb},
+        from_base64,
+    },
+    debug_vec,
 };
 
 pub fn mix_data(input: &[u8], rng: &mut ThreadRng) -> Vec<u8> {
@@ -53,9 +58,9 @@ pub fn encryption_oracle_random_before_after(rng: &mut ThreadRng, input: &[u8]) 
     )
 }
 
-static SECRET_KEY: Lazy<[u8; 16]> = Lazy::new(|| {
+static SECRET_KEY: Lazy<[u8; 32]> = Lazy::new(|| {
     let mut rng = rand::thread_rng();
-    let mut key = [0_u8; 16];
+    let mut key = [0_u8; 32];
     key.try_fill(&mut rng).unwrap();
     key
 });
@@ -76,19 +81,27 @@ where
             YnkK",
     );
     let new_input = input.iter().copied().chain(secret).collect_vec();
-    let mut aes = AesEcb::<Algo>::new(new_input, &*SECRET_KEY);
+    let mut aes = AesEcb::<Algo>::new(new_input, &SECRET_KEY[..Algo::key_size()]);
     aes.encrypt_in_place();
     aes.data()
 }
 
 pub fn find_block_size_ecb(f: impl Fn(&[u8]) -> Vec<u8>) -> usize {
-    (1..)
+    [16_usize, 24, 32]
+        .into_iter()
         .find(|&block_size| {
-            let input = vec![b'A'; block_size * 2];
+            let input = (0u8..block_size as u8)
+                .into_iter()
+                .take(block_size)
+                .cycle()
+                .take(block_size * 2)
+                .collect_vec();
             let encrypted = f(&input);
+
             encrypted[..block_size] == encrypted[block_size..][..block_size]
         })
         .unwrap()
+        .into()
 }
 
 pub fn crack_ecb(block_size: usize, f: &dyn Fn(&[u8]) -> Vec<u8>) -> Vec<u8> {
@@ -144,7 +157,7 @@ fn construct_cache(
 
 #[cfg(test)]
 mod tests {
-    use aes::{Aes128, Aes256};
+    use aes::{Aes128, Aes256, Aes192};
 
     use crate::{
         bytes::{
@@ -200,57 +213,48 @@ mod tests {
 
     #[test]
     fn set2_challenge12() {
-        type Aes = Aes128;
-        let secret_data = encryption_oracle_secret_appended::<Aes>(b"");
-
-        let block_size: usize = find_block_size_ecb(encryption_oracle_secret_appended::<Aes>);
-        assert_eq!(block_size, Aes::block_size(), "16 bit blocks");
-        assert!(
-            detect_aes_ecb(&encryption_oracle_secret_appended::<Aes>(&[b'a'; 32])),
-            "Is ECB"
-        );
-
-        let cracked_data: Vec<u8> = crack_ecb(block_size, &encryption_oracle_secret_appended::<Aes>);
-        debug_vec(&cracked_data);
-
-        assert_eq!(cracked_data.len(), secret_data.len());
-
-        // Check that we decrypted it correctly
-        let secret_data = "\
-            Rollin' in my 5.0\n\
-            With my rag-top down so my hair can blow\n\
-            The girlies on standby waving just to say hi\n\
-            Did you stop? No, I just drove by\n";
-
-        assert_eq!(&String::from_utf8_lossy(&cracked_data), secret_data);
+        run_challenge12::<Aes128>();
     }
 
     #[test]
-    #[ignore]
-    // Not working yet, detects the wrong key size
-    fn set2_challenge12_larger() {
-        type Aes = Aes256;
-        let secret_data = encryption_oracle_secret_appended::<Aes>(b"");
+    fn set2_challenge12_256() {
+        run_challenge12::<Aes256>();
+    }
 
-        let block_size: usize = find_block_size_ecb(encryption_oracle_secret_appended::<Aes>);
-        assert_eq!(block_size, Aes::block_size(), "32 bit blocks");
+    #[test]
+    fn set2_challenge12_192() {
+        run_challenge12::<Aes192>();
+    }
+
+    fn run_challenge12<Algo>()
+    where
+        Algo: BlockDecrypt,
+        Algo: BlockEncrypt,
+        Algo: BlockSizeUser,
+        Algo: KeySizeUser,
+        Algo: KeyInit,
+    {
+        let secret_data = encryption_oracle_secret_appended::<Algo>(b"");
+        let block_size: usize = find_block_size_ecb(encryption_oracle_secret_appended::<Algo>);
+        assert_eq!(block_size, Algo::block_size(), "32 bit blocks");
         assert!(
-            detect_aes_ecb(&encryption_oracle_secret_appended::<Aes>(&[b'a'; 32])),
+            detect_aes_ecb(&encryption_oracle_secret_appended::<Algo>(&vec![
+                b'a';
+                Algo::block_size()
+                    * 2
+            ])),
             "Is ECB"
         );
-
-        let cracked_data: Vec<u8> = crack_ecb(block_size, &encryption_oracle_secret_appended::<Aes>);
+        let cracked_data: Vec<u8> =
+            crack_ecb(block_size, &encryption_oracle_secret_appended::<Algo>);
         debug_vec(&cracked_data);
-
         assert_eq!(cracked_data.len(), secret_data.len());
-
         // Check that we decrypted it correctly
         let secret_data = "\
             Rollin' in my 5.0\n\
             With my rag-top down so my hair can blow\n\
             The girlies on standby waving just to say hi\n\
             Did you stop? No, I just drove by\n";
-
         assert_eq!(&String::from_utf8_lossy(&cracked_data), secret_data);
     }
 }
