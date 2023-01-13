@@ -90,7 +90,7 @@ where
     Algo: BlockSizeUser + KeySizeUser + KeyInit + BlockDecrypt + BlockEncrypt,
 {
     pub fn new(data: &[u8], key: &[u8], iv: &[u8]) -> Self {
-        let mut data = Vec::from(data.as_ref());
+        let mut data = Vec::from(data);
         let length = data.len();
         pad_vec::<16>(&mut data);
         assert_eq!(data.len() % <Algo as BlockSizeUser>::block_size(), 0);
@@ -160,7 +160,7 @@ mod tests {
     fn zero_ecb() {
         let data = [0];
         let key = [0; 16];
-        let mut aes = AesEcb::<Aes128>::new(&data, &key);
+        let mut aes = AesEcb::<Aes128>::new(data, &key);
         aes.encrypt_in_place();
         aes.decrypt_in_place();
         assert_eq!(aes.data(), data);

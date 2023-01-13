@@ -36,13 +36,13 @@ pub fn encryption_oracle_random_before_after(rng: &mut ThreadRng, input: &[u8]) 
     let is_ecb = rng.gen::<bool>();
     (
         if is_ecb {
-            let input = mix_data(&input, rng);
-            let mut ecb = AesEcb::<Aes128>::new(&input, &key);
+            let input = mix_data(input, rng);
+            let mut ecb = AesEcb::<Aes128>::new(input, &key);
             ecb.encrypt_in_place();
             // assert!(detect_aes_ecb(&ecb.data()));
             ecb.data()
         } else {
-            let input = mix_data(&input, rng);
+            let input = mix_data(input, rng);
             let iv = generate_key(rng);
             let mut cbc = AesCbc::<Aes128>::new(&input, &key, &iv);
             cbc.encrypt_in_place();
@@ -75,8 +75,8 @@ where
             dXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUg\
             YnkK",
     );
-    let new_input = input.into_iter().copied().chain(secret).collect_vec();
-    let mut aes = AesEcb::<Algo>::new(&new_input, &*SECRET_KEY);
+    let new_input = input.iter().copied().chain(secret).collect_vec();
+    let mut aes = AesEcb::<Algo>::new(new_input, &*SECRET_KEY);
     aes.encrypt_in_place();
     aes.data()
 }
@@ -86,7 +86,7 @@ pub fn find_block_size_ecb(f: impl Fn(&[u8]) -> Vec<u8>) -> usize {
         .find(|&block_size| {
             let input = vec![b'A'; block_size * 2];
             let encrypted = f(&input);
-            &encrypted[..block_size] == &encrypted[block_size..][..block_size]
+            encrypted[..block_size] == encrypted[block_size..][..block_size]
         })
         .unwrap()
 }
@@ -200,17 +200,17 @@ mod tests {
 
     #[test]
     fn set2_challenge12() {
-        type AES = Aes128;
-        let secret_data = encryption_oracle_secret_appended::<AES>(b"");
+        type Aes = Aes128;
+        let secret_data = encryption_oracle_secret_appended::<Aes>(b"");
 
-        let block_size: usize = find_block_size_ecb(encryption_oracle_secret_appended::<AES>);
-        assert_eq!(block_size, AES::block_size(), "16 bit blocks");
+        let block_size: usize = find_block_size_ecb(encryption_oracle_secret_appended::<Aes>);
+        assert_eq!(block_size, Aes::block_size(), "16 bit blocks");
         assert!(
-            detect_aes_ecb(&encryption_oracle_secret_appended::<AES>(&[b'a'; 32])),
+            detect_aes_ecb(&encryption_oracle_secret_appended::<Aes>(&[b'a'; 32])),
             "Is ECB"
         );
 
-        let cracked_data: Vec<u8> = crack_ecb(block_size, &encryption_oracle_secret_appended::<AES>);
+        let cracked_data: Vec<u8> = crack_ecb(block_size, &encryption_oracle_secret_appended::<Aes>);
         debug_vec(&cracked_data);
 
         assert_eq!(cracked_data.len(), secret_data.len());
@@ -229,17 +229,17 @@ mod tests {
     #[ignore]
     // Not working yet, detects the wrong key size
     fn set2_challenge12_larger() {
-        type AES = Aes256;
-        let secret_data = encryption_oracle_secret_appended::<AES>(b"");
+        type Aes = Aes256;
+        let secret_data = encryption_oracle_secret_appended::<Aes>(b"");
 
-        let block_size: usize = find_block_size_ecb(encryption_oracle_secret_appended::<AES>);
-        assert_eq!(block_size, AES::block_size(), "32 bit blocks");
+        let block_size: usize = find_block_size_ecb(encryption_oracle_secret_appended::<Aes>);
+        assert_eq!(block_size, Aes::block_size(), "32 bit blocks");
         assert!(
-            detect_aes_ecb(&encryption_oracle_secret_appended::<AES>(&[b'a'; 32])),
+            detect_aes_ecb(&encryption_oracle_secret_appended::<Aes>(&[b'a'; 32])),
             "Is ECB"
         );
 
-        let cracked_data: Vec<u8> = crack_ecb(block_size, &encryption_oracle_secret_appended::<AES>);
+        let cracked_data: Vec<u8> = crack_ecb(block_size, &encryption_oracle_secret_appended::<Aes>);
         debug_vec(&cracked_data);
 
         assert_eq!(cracked_data.len(), secret_data.len());
