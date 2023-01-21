@@ -1,5 +1,6 @@
 use std::iter::repeat;
 
+use aes::cipher::BlockSizeUser;
 use itertools::repeat_n;
 
 pub fn pad_block<const LENGTH: usize>(input: &[u8]) -> Option<[u8; LENGTH]> {
@@ -14,7 +15,14 @@ pub fn pad_block<const LENGTH: usize>(input: &[u8]) -> Option<[u8; LENGTH]> {
         .ok()
 }
 
-pub fn pad_vec<const LENGTH: usize>(input: &mut Vec<u8>) {
-    let pad_byte = LENGTH.checked_sub(input.len() % LENGTH).unwrap();
+pub fn pad_vec<Algo>(input: &mut Vec<u8>)
+where
+    Algo: BlockSizeUser,
+{
+    let length = Algo::block_size();
+    if input.len() % length == 0 {
+        return;
+    }
+    let pad_byte = length.checked_sub(input.len() % length).unwrap();
     input.extend(repeat_n(pad_byte as u8, pad_byte));
 }

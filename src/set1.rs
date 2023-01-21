@@ -121,9 +121,10 @@ mod tests {
         );
         let key = b"YELLOW SUBMARINE";
         let key = GenericArray::<_, U16>::from_slice(key);
-        let mut data = AesEcb::<Aes128>::new(&input, key);
+        let mut data = AesEcb::<Aes128>::from_plaintext(&input, key);
         data.decrypt_in_place();
-        assert_eq!(data.data().len(), 2880);
+        data.encrypted = true;
+        assert_eq!(data.data().len(), input.len());
         assert!(data
             .data()
             .starts_with(b"I'm back and I'm ringin' the bell"));
